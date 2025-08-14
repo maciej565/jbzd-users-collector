@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-        with:
-          persist-credentials: true  # pozwala git push bez podawania tokena
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -35,4 +33,6 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add users.json
           git commit -m "Automatyczna aktualizacja users.json: $(date '+%Y-%m-%d %H:%M:%S')" || echo "Brak zmian do commit"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
