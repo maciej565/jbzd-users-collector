@@ -2,7 +2,7 @@ name: Update Users JSON
 
 on:
   schedule:
-    - cron: '0 * * * *'  # uruchamiaj co godzinę
+    - cron: '0 0 * * *'  # codziennie o 00:00 UTC
   workflow_dispatch:      # pozwala ręczne uruchomienie
 
 jobs:
@@ -26,11 +26,13 @@ jobs:
       - name: Run script
         run: |
           python fetch_users.py  # Twój skrypt pobierający JSON i zapisujący do users.json
-
-      - name: Commit changes
-        run: |
+       - name: Commit changes
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add users.json
           git commit -m "Automatyczna aktualizacja users.json: $(date '+%Y-%m-%d %H:%M:%S')" || echo "Brak zmian do commit"
-          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }} HEAD:main
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+     
