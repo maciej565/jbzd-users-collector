@@ -33,7 +33,7 @@ jobs:
           python fetch_users.py
         env:
           START_ID: 1
-          END_ID: 100
+          END_ID: 1450000
 
       - name: Commit and push changes
         run: |
