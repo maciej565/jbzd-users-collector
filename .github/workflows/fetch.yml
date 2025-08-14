@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * *'  # codziennie o 00:00 UTC
   workflow_dispatch:      # pozwala ręczne uruchomienie
 
+permissions:
+  contents: write   # 🔹 daje GITHUB_TOKEN prawo do zapisu
+
 jobs:
   update-users:
     runs-on: ubuntu-latest
@@ -12,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # 🔹 używamy tokena z prawami zapisu
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -25,7 +30,10 @@ jobs:
 
       - name: Run script
         run: |
-          python fetch_users.py  # Twój skrypt pobierający JSON i zapisujący do users.json
+          python fetch_users.py
+        env:
+          START_ID: 1
+          END_ID: 100
 
       - name: Commit and push changes
         run: |
@@ -33,6 +41,4 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add users.json
           git commit -m "Automatyczna aktualizacja users.json: $(date '+%Y-%m-%d %H:%M:%S')" || echo "Brak zmian do commit"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git push   # 🔹 nie podajemy już ręcznie URL ani tokena
