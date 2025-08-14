@@ -26,7 +26,9 @@ jobs:
       - name: Run script
         run: |
           python fetch_users.py  # Twój skrypt pobierający JSON i zapisujący do users.json
-       - name: Commit changes
+
+      - name: Commit changes
+        run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add users.json
@@ -34,5 +36,3 @@ jobs:
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-     
