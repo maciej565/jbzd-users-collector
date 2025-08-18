@@ -4,7 +4,7 @@ import os
 
 OUTPUT_FILE = "users.json"
 START_ID = int(os.environ.get("START_ID", 1))
-END_ID = int(os.environ.get("END_ID", 100000))
+END_ID = int(os.environ.get("END_ID", 10000))
 
 # Wczytaj istniejące dane lub utwórz pustą listę
 if os.path.exists(OUTPUT_FILE):
