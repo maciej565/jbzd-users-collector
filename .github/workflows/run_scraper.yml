@@ -8,8 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
-      - uses: actions/checkout@v3
+      # 1. Checkout repo z PAT (v4)
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
 
       # 2. Setup Python
       - name: Set up Python
@@ -23,7 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 4. Configure Git
+      # 4. Configure Git (opcjonalnie)
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
@@ -32,24 +34,13 @@ jobs:
       # 5. Run scraper
       - name: Run scraper
         run: python fetch_users.py
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}   # Twój PAT w secrets
 
       # 6. Commit & push only if changes
       - name: Commit & push changes
         run: |
-          # ustawienie remote z PAT
-          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-          
-          # commit i push tylko jeśli są zmiany
           if [ -n "$(git status --porcelain)" ]; then
             git add profils/
             git commit -m "Add new profiles HTML"
             git push origin HEAD:main
           else
             echo "Brak nowych plików — commit/push pominięty"
-          fi
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
