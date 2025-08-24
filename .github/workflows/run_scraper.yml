@@ -33,13 +33,16 @@ jobs:
       - name: Run scraper
         run: python fetch_users.py
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}   # Twój PAT w secrets
 
       # 6. Commit & push only if changes
       - name: Commit & push changes
         run: |
-          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+          # ustawienie remote z PAT
+          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          
+          # commit i push tylko jeśli są zmiany
           if [ -n "$(git status --porcelain)" ]; then
             git add profils/
             git commit -m "Add new profiles HTML"
@@ -47,3 +50,6 @@ jobs:
           else
             echo "Brak nowych plików — commit/push pominięty"
           fi
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
