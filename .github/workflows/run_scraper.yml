@@ -1,9 +1,7 @@
 name: Run JBZD Scraper
 
 on:
-  workflow_dispatch:  # pozwala uruchomić ręcznie
-  schedule:
-    - cron: '0 3 * * *'  # opcjonalnie: codziennie o 3:00
+  workflow_dispatch:
 
 jobs:
   run:
@@ -23,10 +21,17 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run scraper
-        run: python fetch_users.py
+        run: python scraper.py
 
-      - name: Upload results
-        uses: actions/upload-artifact@v3
-        with:
-          name: profils-html
-          path: profils/
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push HTML files
+        run: |
+          git add profils/
+          git commit -m "Add new profiles HTML"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
