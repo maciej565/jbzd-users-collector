@@ -39,10 +39,7 @@ jobs:
       # 6. Commit & push only if changes
       - name: Commit & push changes
         run: |
-          # ustawienie remote z PAT
           git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
-          
-          # commit i push tylko jeśli są zmiany
           if [ -n "$(git status --porcelain)" ]; then
             git add profils/
             git commit -m "Add new profiles HTML"
