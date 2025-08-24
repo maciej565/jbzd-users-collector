@@ -16,7 +16,7 @@ headers = {
     )
 }
 
-SEM_LIMIT = 50
+SEM_LIMIT = 10
 MAX_RETRIES = 3
 stats = Counter()
 
