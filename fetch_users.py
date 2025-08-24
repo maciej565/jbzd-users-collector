@@ -22,8 +22,7 @@ BATCH_SIZE = 100      # liczba profili w jednej partii
 
 stats = Counter()
 
-async def fetch_profile(session, sem, data):
-    profile_id, retries = data
+async def fetch_profile(session, sem, profile_id, retries):
     url = f"https://jbzd.com.pl/mikroblog/user/profile/{profile_id}"
     async with sem:
         try:
@@ -51,7 +50,7 @@ async def scrape_batch(start_id, end_id):
         queue = deque((i, 0) for i in range(start_id, end_id + 1))
         while queue:
             batch = min(SEM_LIMIT, len(queue))
-            tasks = [fetch_profile(session, sem, queue.popleft()) for _ in range(batch)]
+            tasks = [fetch_profile(session, sem, *queue.popleft()) for _ in range(batch)]
             results = await asyncio.gather(*tasks)
             for status, profile_id, retries in results:
                 if status == 'error' and retries < MAX_RETRIES:
