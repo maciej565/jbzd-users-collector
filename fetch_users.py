@@ -1,96 +1,74 @@
-import requests
-import json
+import aiohttp
+import asyncio
 import os
-import subprocess
+import async_timeout
+from collections import Counter, deque
+import time
 
-# Konfiguracja
-BATCH_SIZE = 1000       # ile rekordów pobieramy na raz
-CHUNK_SIZE = 50000      # ile rekordów przypada na 1 plik JSON
-START_ID = int(os.environ.get("START_ID", 1))
-END_ID = int(os.environ.get("END_ID", 1400000))
+# Folder do zapisu
+os.makedirs("profils", exist_ok=True)
 
-PROGRESS_FILE = "progress.txt"
+headers = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
+}
 
-# Wczytaj postęp (od którego ID zacząć)
-if os.path.exists(PROGRESS_FILE):
-    with open(PROGRESS_FILE, "r") as f:
-        last_id = int(f.read().strip())
-        START_ID = max(START_ID, last_id + 1)
-        print(f"Wznawiam od ID {START_ID}")
-else:
-    last_id = START_ID - 1
+SEM_LIMIT = 50  # liczba równoczesnych połączeń
+MAX_RETRIES = 3  # maksymalna liczba prób dla profilu
 
+stats = Counter()
 
-def get_part_file(index: int) -> str:
-    """Zwraca nazwę pliku dla danej paczki 50k rekordów."""
-    part_number = (index - 1) // CHUNK_SIZE + 1
-    return f"users_part_{part_number}.json"
-
-
-def load_chunk(index: int):
-    """Wczytaj dane z odpowiedniego pliku (jeśli istnieje)."""
-    filename = get_part_file(index)
-    if os.path.exists(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return []
-    return []
-
-
-def save_chunk(index: int, data):
-    """Zapisz dane do odpowiedniego pliku."""
-    filename = get_part_file(index)
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def git_commit_and_push(files, message: str):
-    """Dodaje, commituje i wysyła zmiany na GitHuba."""
-    try:
-        subprocess.run(["git", "add"] + files, check=True)
-        subprocess.run(["git", "commit", "-m", message], check=True)
-        subprocess.run(["git", "push"], check=True)
-        print("✅ Zacomitowano i wypchnięto zmiany na GitHuba")
-    except subprocess.CalledProcessError as e:
-        print(f"⚠️ Błąd podczas commita/pusha: {e}")
-
-
-# Pobieranie paczkami
-for batch_start in range(START_ID, END_ID + 1, BATCH_SIZE):
-    batch_end = min(batch_start + BATCH_SIZE - 1, END_ID)
-    print(f"\n=== Pobieranie paczki {batch_start} - {batch_end} ===")
-
-    # Wczytaj aktualny plik (dla tej paczki)
-    current_chunk = load_chunk(batch_start)
-
-    for user_id in range(batch_start, batch_end + 1):
-        url = f"https://jbzd.com.pl/mikroblog/user/profile/{user_id}"
+async def fetch_profile(session, sem, data):
+    profile_id, retries = data
+    url = f"https://jbzd.com.pl/mikroblog/user/profile/{profile_id}"
+    async with sem:
         try:
-            r = requests.get(url, timeout=10)
-            if r.status_code == 200:
-                data = r.json()
-                if data.get("status") == "success":
-                    current_chunk.append(data["user"])
-                    print(f"Pobrano ID {user_id}")
-                else:
-                    print(f"Brak danych dla ID {user_id}")
-            else:
-                print(f"Błąd HTTP {r.status_code} dla ID {user_id}")
-        except Exception as e:
-            print(f"Błąd dla ID {user_id}: {e}")
+            async with async_timeout.timeout(10):
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        text = await resp.text()
+                        with open(f"profils/profile_{profile_id}.html", "w", encoding="utf-8") as f:
+                            f.write(text)
+                        stats['200'] += 1
+                        return 'success', profile_id, retries
+                    elif resp.status == 404:
+                        stats['404'] += 1
+                        return 'not_exist', profile_id, retries
+                    else:
+                        stats[f"HTTP {resp.status}"] += 1
+                        return 'error', profile_id, retries
+        except Exception:
+            stats['Other errors'] += 1
+            return 'error', profile_id, retries
 
-    # Zapisz aktualny plik + postęp
-    save_chunk(batch_start, current_chunk)
+async def main(start, end):
+    start_time = time.time()
+    sem = asyncio.Semaphore(SEM_LIMIT)
+    async with aiohttp.ClientSession(headers=headers) as session:
+        queue = deque((i, 0) for i in range(start, end + 1))
 
-    with open(PROGRESS_FILE, "w") as f:
-        f.write(str(batch_end))
+        while queue:
+            batch_size = min(SEM_LIMIT, len(queue))
+            tasks = [fetch_profile(session, sem, queue.popleft()) for _ in range(batch_size)]
+            results = await asyncio.gather(*tasks)
 
-    print(f"✅ Zapisano {len(current_chunk)} rekordów w {get_part_file(batch_start)}")
+            for status, profile_id, retries in results:
+                if status == 'error' and retries < MAX_RETRIES:
+                    queue.append((profile_id, retries + 1))
 
-    # Commit i push tylko zmienionych plików
-    git_commit_and_push([get_part_file(batch_start), PROGRESS_FILE],
-                        f"Pobrano paczkę {batch_start}-{batch_end}")
+            print(f"Pozostało profili w kolejce: {len(queue)}", end='\r')
 
-print("\n✅ Pobieranie zakończone.")
+    elapsed = time.time() - start_time
+    print("\n--- STATYSTYKI ---")
+    print(f"SEM_LIMIT (maks równoczesnych połączeń): {SEM_LIMIT}")
+    for key, value in stats.items():
+        print(f"{key}: {value}")
+    print(f"\nCzas wykonania: {elapsed:.2f} sekund ({elapsed/60:.2f} minut)")
+
+if __name__ == "__main__":
+    start = 1
+    end = 1000
+    asyncio.run(main(start, end))
