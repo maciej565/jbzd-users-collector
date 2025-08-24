@@ -44,3 +44,4 @@ jobs:
             git push origin HEAD:main
           else
             echo "Brak nowych plików — commit/push pominięty"
+          fi
