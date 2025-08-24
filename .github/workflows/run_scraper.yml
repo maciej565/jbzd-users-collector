@@ -20,18 +20,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run scraper
-        run: python fetch_users.py
-
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit and push HTML files
-        run: |
-          git add profils/
-          git commit -m "Add new profiles HTML"
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+      - name: Run scraper
+        run: python fetch_users.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}       # Twój PAT dodany w Secrets
+          GITHUB_REPOSITORY: ${{ github.repository }}
