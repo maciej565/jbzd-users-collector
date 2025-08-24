@@ -4,7 +4,6 @@ import os
 import async_timeout
 from collections import Counter, deque
 import time
-import subprocess
 
 # Folder do zapisu
 os.makedirs("profils", exist_ok=True)
@@ -64,28 +63,12 @@ async def scrape_batch(start_id, end_id):
         print(f"{key}: {value}")
     stats.clear()  # reset statystyk po batchu
 
-def git_commit_push(message="Update profiles HTML"):
-    try:
-        subprocess.run(["git", "add", "profils/"], check=True)
-        subprocess.run(["git", "commit", "-m", message], check=True)
-        github_token = os.environ.get("GITHUB_TOKEN")
-        repo = os.environ.get("GITHUB_REPOSITORY")
-        if github_token and repo:
-            push_url = f"https://x-access-token:{github_token}@github.com/{repo}.git"
-            subprocess.run(["git", "push", push_url], check=True)
-        else:
-            print("Brak tokena lub repo, commit wykonany lokalnie, brak push.")
-    except subprocess.CalledProcessError as e:
-        print(f"Błąd podczas commit/push: {e}")
-
 def run_scraper(start_id, end_id):
     total_start = time.time()
     for batch_start in range(start_id, end_id + 1, BATCH_SIZE):
         batch_end = min(batch_start + BATCH_SIZE - 1, end_id)
         print(f"\n--- Scraping profiles {batch_start} do {batch_end} ---")
         asyncio.run(scrape_batch(batch_start, batch_end))
-        print(f"Commitowanie partii {batch_start}-{batch_end}...")
-        git_commit_push(f"Add profiles {batch_start}-{batch_end}")
     elapsed = time.time() - total_start
     print(f"\nCałkowity czas: {elapsed:.2f} sekund ({elapsed/60:.2f} minut)")
 
